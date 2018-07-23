@@ -75,8 +75,10 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
 
     if which_model_netG == 'resnet_9blocks':
         netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
-    elif which_model_netG == 'ResnetGenerator3d':
-        netG = ResnetGenerator3d(nput_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
+    elif which_model_netG == 'ResnetGeneratorImageToVoxel':
+        netG = ResnetGeneratorImageToVoxel(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
+    elif which_model_netG == 'ResnetGeneratorVoxelToImage':
+        netG = ResnetGeneratorVoxelToImage(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
     elif which_model_netG == 'resnet_6blocks':
         netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
     elif which_model_netG == 'unet_128':
@@ -97,6 +99,8 @@ def define_D(input_nc, ndf, which_model_netD,
         netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
     elif which_model_netD == 'n_layers':
         netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
+    elif which_model_netD == 'basic_3d':
+        netD = NLayerDiscriminator3d(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
     elif which_model_netD == 'pixel':
         netD = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer, use_sigmoid=use_sigmoid)
     else:
@@ -187,7 +191,7 @@ class ResnetGenerator(nn.Module):
     def forward(self, input):
         return self.model(input)
 
-class ResnetGenerator3d(nn.Module):
+class ResnetGeneratorImageToVoxel(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect', cube_len = 256):
         assert(n_blocks >= 0)
         super(ResnetGenerator, self).__init__()
@@ -216,12 +220,11 @@ class ResnetGenerator3d(nn.Module):
         mult = 2**n_downsampling
         for i in range(n_blocks):
             model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
-       
         padd = (0, 0, 0)
         if self.cube_len == 32:
             padd = (1,1,1)
        
-        model += [View()]
+        model += [Flatten()]
 
         model += [nn.ConvTranspose3d(self.args.z_size, self.cube_len*8, kernel_size=4, stride=2, bias=args.bias, padding=padd)]
         model += [nn.BatchNorm3d(self.cube_len*8)]
@@ -242,6 +245,66 @@ class ResnetGenerator3d(nn.Module):
         model += [nn.ConvTranspose3d(self.cube_len, 1, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1))]
         model += [nn.Sigmoid()]
 
+        # # Upsampling (Convolutional Transposition)
+        # for i in range(n_downsampling):
+        #     mult = 2**(n_downsampling - i)
+        #     model += [nn.ConvTranspose3d(ngf * mult, int(ngf * mult / 2),
+        #                                  kernel_size=3, stride=2,
+        #                                  padding=1, output_padding=1,
+        #                                  bias=use_bias),
+        #               norm_layer(int(ngf * mult / 2)),
+        #               nn.ReLU(True)]
+        # model += [nn.ReflectionPad2d(3)]
+        # model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0)]
+        # model += [nn.Tanh()]
+
+        self.model = nn.Sequential(*model)
+
+    def forward(self, input):
+        return self.model(input)
+
+class ResnetGeneratorVoxelToImage(nn.Module):
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect', cube_len = 256):
+        assert(n_blocks >= 0)
+        super(ResnetGenerator, self).__init__()
+        self.input_nc = input_nc
+        self.output_nc = output_nc
+        self.ngf = ngf
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer == nn.InstanceNorm2d
+
+        model = [nn.ReplicationPad3d(3),
+                 nn.Conv3d(input_nc, ngf, kernel_size=7, padding=0,
+                           bias=use_bias),
+                 norm_layer(ngf),
+                 nn.ReLU(True)]
+        # Downsampling
+        n_downsampling = 2
+        for i in range(n_downsampling):
+            mult = 2**i
+            model += [  nn.Conv3d(1, self.cube_len, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+                        nn.BatchNorm3d(self.cube_len),
+                        nn.LeakyReLU(self.args.leak_value),
+                        nn.Conv3d(self.cube_len, self.cube_len*2, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+                        nn.BatchNorm3d(self.cube_len*2),
+                        nn.LeakyReLU(self.args.leak_value),
+                        nn.Conv3d(self.cube_len*2, self.cube_len*4, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+                        nn.BatchNorm3d(self.cube_len*4),
+                        nn.LeakyReLU(self.args.leak_value),
+                        nn.Conv3d(self.cube_len*4, self.cube_len*8, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+                        nn.BatchNorm3d(self.cube_len*8),
+                        nn.LeakyReLU(self.args.leak_value),
+                        nn.Conv3d(self.cube_len*8, 1, kernel_size=4, stride=2, bias=args.bias, padding=padd),
+                        nn.Sigmoid()]
+        model += [Flatten()]
+
+        # Transforming
+        mult = 2**n_downsampling
+        for i in range(n_blocks):
+            model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
+       
         # Upsampling (Convolutional Transposition)
         for i in range(n_downsampling):
             mult = 2**(n_downsampling - i)
@@ -430,6 +493,52 @@ class NLayerDiscriminator(nn.Module):
     def forward(self, input):
         return self.model(input)
 
+class NLayerDiscriminator3d(nn.Module):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False):
+        super(NLayerDiscriminator, self).__init__()
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer == nn.InstanceNorm2d
+
+        kw = 4
+        padw = 1
+        sequence = [
+            nn.Conv3d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        nf_mult = 1
+        nf_mult_prev = 1
+        for n in range(1, n_layers):
+            nf_mult_prev = nf_mult
+            nf_mult = min(2**n, 8)
+            sequence += [
+                nn.Conv3d(ndf * nf_mult_prev, ndf * nf_mult,
+                          kernel_size=kw, stride=2, padding=padw, bias=use_bias),
+                norm_layer(ndf * nf_mult),
+                nn.LeakyReLU(0.2, True)
+            ]
+
+        nf_mult_prev = nf_mult
+        nf_mult = min(2**n_layers, 8)
+        sequence += [
+            nn.Conv3d(ndf * nf_mult_prev, ndf * nf_mult,
+                      kernel_size=kw, stride=1, padding=padw, bias=use_bias),
+            norm_layer(ndf * nf_mult),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        sequence += [nn.Conv3d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]
+
+        if use_sigmoid:
+            sequence += [nn.Sigmoid()]
+
+        self.model = nn.Sequential(*sequence)
+
+    def forward(self, input):
+        print(model())
+        return self.model(input)
 
 class PixelDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, norm_layer=nn.BatchNorm2d, use_sigmoid=False):
@@ -455,11 +564,10 @@ class PixelDiscriminator(nn.Module):
     def forward(self, input):
         return self.net(input)
 
-class View(nn.Module):
-    def __init__(self, z_size = 200):
-      super(View, self).__init__()
-      self.z_size = z_size
+class Flatten(nn.Module):
+    def __init__(self):
+      super(Flatten, self).__init__()
 
-    def forward(self, x):
-        return x.view(-1, z_size, 1, 1, 1) 
+    def forward(self, input):
+        return input.view(input(0), -1, 1) 
 
