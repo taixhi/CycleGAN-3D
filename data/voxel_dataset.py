@@ -10,6 +10,7 @@ from PIL import Image
 
 class VoxelDataset(BaseDataset):
     def initialize(self, opt):
+        self.opt = opt
         self.voxel_dir = os.path.join(opt.dataroot, opt.phase + '_voxels')
         self.images_dir = os.path.join(opt.dataroot, opt.phase + '_imgs')
         self.voxel_paths = self.make_voxel_dataset()
