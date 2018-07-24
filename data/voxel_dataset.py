@@ -55,7 +55,7 @@ class VoxelDataset(BaseDataset):
         # Load Image
         img = Image.open(image_path).convert('RGB')
         A = self.transform(img)
-        if input_nc == 1:  # RGB to gray
+        if self.opt.output_nc == 1:  # RGB to gray
             tmp = A[0, ...] * 0.299 + A[1, ...] * 0.587 + A[2, ...] * 0.114
             image = tmp.unsqueeze(0)
 
