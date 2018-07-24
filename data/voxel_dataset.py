@@ -60,7 +60,7 @@ class VoxelDataset(BaseDataset):
             tmp = A[0, ...] * 0.299 + A[1, ...] * 0.587 + A[2, ...] * 0.114
             image = tmp.unsqueeze(0)
 
-        return {'voxel': voxel, 'image': image, 'voxel_path': voxel_path, 'image_path' image_path}
+        return {'voxel': voxel, 'image': image, 'voxel_path': voxel_path, 'image_path': image_path}
 
 
     def make_image_dataset(self):
