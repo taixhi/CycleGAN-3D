@@ -25,9 +25,11 @@ class VoxelDataset(BaseDataset):
 
     def make_voxel_dataset(self):
         voxels = []
+        print(self.voxel_dir)
         for dir in os.walk(self.voxel_dir):
-            if "./train_voxels/" in dir[0] and os.stat(dir[0] + '/model.mat').st_size is not 0:
-                images.append(dir[0] + '/model.mat')
+            if "train_voxels/" in dir[0] and os.stat(dir[0] + '/model.mat').st_size is not 0:
+                dir = (dir[0] + '/model.mat')
+                voxels.append(dir)
                 # mat = sio.loadmat(dir[0] + '/model.mat')
                 # mat['input'][0]
         
@@ -35,10 +37,12 @@ class VoxelDataset(BaseDataset):
 
     def make_image_dataset(self):
         images = []
-        for root, _, fnames in os.walk(self.images_dir):
-            if is_image_file(fnames):
-                path = os.path.join(root, fname)
-                images.append(path)
+        walked = os.walk(self.images_dir)
+        for root, _, fnames in walked:
+            for image in fnames:
+                if is_image_file(image):
+                    path = os.path.join(root, image)
+                    images.append(path)
         
         return images
 
