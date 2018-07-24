@@ -4,6 +4,8 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import is_image_file
+import random
+
 
 class VoxelDataset(BaseDataset):
     def initialize(self, opt):
