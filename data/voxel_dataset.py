@@ -35,6 +35,26 @@ class VoxelDataset(BaseDataset):
         
         return voxels
 
+    def __getitem__(self, index):
+        image_path = self.image_paths[index % self.image_size]
+        temp_voxel_path = self.voxel_dir +  image_path.split('/')[-2] + '/model.mat'
+        if temp_voxel_path in self.voxel_paths:
+            voxel_path = temp_voxel_path
+        else:
+            voxel_path = self.voxel_paths[random.randint(0, self.B_size - 1)]
+        # Load Voxel
+        voxel = sio.loadmat(voxel_path)
+        voxel['input'][0]
+        print(voxel)
+
+        # Load Image
+        if input_nc == 1:  # RGB to gray
+            tmp = A[0, ...] * 0.299 + A[1, ...] * 0.587 + A[2, ...] * 0.114
+            image = tmp.unsqueeze(0)
+
+        return {'voxel': voxel, 'image': image, }
+
+
     def make_image_dataset(self):
         images = []
         walked = os.walk(self.images_dir)
