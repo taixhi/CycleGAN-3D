@@ -49,9 +49,9 @@ class VoxelDataset(BaseDataset):
         else:
             voxel_path = self.voxel_paths[random.randint(0, self.voxel_size - 1)]
         # Load Voxel
-        voxel = sio.loadmat(voxel_path)
-        voxel['input'][0]
-        print(voxel)
+        voxel_dict = sio.loadmat(voxel_path)
+        voxel = voxel_dict['input'][0]
+        
 
         # Load Image
         img = Image.open(image_path).convert('RGB')

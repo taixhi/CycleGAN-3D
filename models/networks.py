@@ -193,10 +193,12 @@ class ResnetGenerator(nn.Module):
 class ResnetGeneratorImageToVoxel(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect', cube_len = 256):
         assert(n_blocks >= 0)
-        super(ResnetGenerator, self).__init__()
+        super(ResnetGeneratorImageToVoxel, self).__init__()
         self.input_nc = input_nc
         self.output_nc = output_nc
         self.ngf = ngf
+        self.cube_len = cube_len
+        self.z_size = 200
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
@@ -225,23 +227,23 @@ class ResnetGeneratorImageToVoxel(nn.Module):
        
         model += [Flatten()]
 
-        model += [nn.ConvTranspose3d(self.args.z_size, self.cube_len*8, kernel_size=4, stride=2, bias=args.bias, padding=padd)]
+        model += [nn.ConvTranspose3d(self.z_size, self.cube_len*8, kernel_size=4, stride=2, bias=use_bias, padding=padd)]
         model += [nn.BatchNorm3d(self.cube_len*8)]
         model += [nn.ReLU()]
 
-        model += [nn.ConvTranspose3d(self.cube_len*8, self.cube_len*4, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1))]
+        model += [nn.ConvTranspose3d(self.cube_len*8, self.cube_len*4, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.BatchNorm3d(self.cube_len*4)]
         model += [nn.ReLU()]
 
-        model += [nn.ConvTranspose3d(self.cube_len*4, self.cube_len*2, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1))]
+        model += [nn.ConvTranspose3d(self.cube_len*4, self.cube_len*2, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.BatchNorm3d(self.cube_len*2)]
         model += [nn.ReLU()]
 
-        model += [nn.ConvTranspose3d(self.cube_len*2, self.cube_len, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1))]
+        model += [nn.ConvTranspose3d(self.cube_len*2, self.cube_len, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.BatchNorm3d(self.cube_len)]
         model += [nn.ReLU()]
 
-        model += [nn.ConvTranspose3d(self.cube_len, 1, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1))]
+        model += [nn.ConvTranspose3d(self.cube_len, 1, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.Sigmoid()]
 
         # # Upsampling (Convolutional Transposition)
@@ -265,10 +267,12 @@ class ResnetGeneratorImageToVoxel(nn.Module):
 class ResnetGeneratorVoxelToImage(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect', cube_len = 256):
         assert(n_blocks >= 0)
-        super(ResnetGenerator, self).__init__()
+        super(ResnetGeneratorVoxelToImage, self).__init__()
         self.input_nc = input_nc
         self.output_nc = output_nc
         self.ngf = ngf
+        self.cube_len = cube_len
+        self.leak_value = 0.2
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
@@ -280,22 +284,25 @@ class ResnetGeneratorVoxelToImage(nn.Module):
                  norm_layer(ngf),
                  nn.ReLU(True)]
         # Downsampling
+        padd = (0, 0, 0)
+        if self.cube_len == 32:
+            padd = (1,1,1)
         n_downsampling = 2
         for i in range(n_downsampling):
             mult = 2**i
-            model += [  nn.Conv3d(1, self.cube_len, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+            model += [  nn.Conv3d(1, self.cube_len, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1)),
                         nn.BatchNorm3d(self.cube_len),
-                        nn.LeakyReLU(self.args.leak_value),
-                        nn.Conv3d(self.cube_len, self.cube_len*2, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+                        nn.LeakyReLU(self.leak_value),
+                        nn.Conv3d(self.cube_len, self.cube_len*2, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1)),
                         nn.BatchNorm3d(self.cube_len*2),
-                        nn.LeakyReLU(self.args.leak_value),
-                        nn.Conv3d(self.cube_len*2, self.cube_len*4, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+                        nn.LeakyReLU(self.leak_value),
+                        nn.Conv3d(self.cube_len*2, self.cube_len*4, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1)),
                         nn.BatchNorm3d(self.cube_len*4),
-                        nn.LeakyReLU(self.args.leak_value),
-                        nn.Conv3d(self.cube_len*4, self.cube_len*8, kernel_size=4, stride=2, bias=args.bias, padding=(1, 1, 1)),
+                        nn.LeakyReLU(self.leak_value),
+                        nn.Conv3d(self.cube_len*4, self.cube_len*8, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1)),
                         nn.BatchNorm3d(self.cube_len*8),
-                        nn.LeakyReLU(self.args.leak_value),
-                        nn.Conv3d(self.cube_len*8, 1, kernel_size=4, stride=2, bias=args.bias, padding=padd),
+                        nn.LeakyReLU(self.leak_value),
+                        nn.Conv3d(self.cube_len*8, 1, kernel_size=4, stride=2, bias=use_bias, padding=padd),
                         nn.Sigmoid()]
         model += [Flatten()]
 
@@ -494,7 +501,7 @@ class NLayerDiscriminator(nn.Module):
 
 class NLayerDiscriminator3d(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False):
-        super(NLayerDiscriminator, self).__init__()
+        super(NLayerDiscriminator3d, self).__init__()
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:

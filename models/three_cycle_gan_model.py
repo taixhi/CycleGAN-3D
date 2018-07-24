@@ -75,9 +75,9 @@ class ThreeCycleGANModel(BaseModel):
 
     def set_input(self, input):
         AtoB = self.opt.which_direction == 'AtoB'
-        self.real_A = input['A' if AtoB else 'B'].to(self.device)
-        self.real_B = input['B' if AtoB else 'A'].to(self.device)
-        self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        self.real_A = input['image' if AtoB else 'voxel'].to(self.device)
+        self.real_B = input['voxel' if AtoB else 'image'].to(self.device)
+        self.image_paths = input['image_path' if AtoB else 'voxel_path']
 
     def forward(self):
         self.fake_B = self.netG_A(self.real_A)
