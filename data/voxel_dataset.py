@@ -5,6 +5,7 @@ from torchvision import transforms, utils
 from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import is_image_file
 import random
+from PIL import Image
 
 
 class VoxelDataset(BaseDataset):
@@ -19,6 +20,8 @@ class VoxelDataset(BaseDataset):
         self.voxel_size = len(self.voxel_paths)
         self.image_size = len(self.image_paths)
         print('called')
+
+        self.transform = get_transform(opt)
     def name(self):
         return 'BaseDataset'
 
@@ -43,13 +46,15 @@ class VoxelDataset(BaseDataset):
         if temp_voxel_path in self.voxel_paths:
             voxel_path = temp_voxel_path
         else:
-            voxel_path = self.voxel_paths[random.randint(0, self.B_size - 1)]
+            voxel_path = self.voxel_paths[random.randint(0, self.voxel_size - 1)]
         # Load Voxel
         voxel = sio.loadmat(voxel_path)
         voxel['input'][0]
         print(voxel)
 
         # Load Image
+        A_img = Image.open(A_path).convert('RGB')
+        A = self.transform(A_img)
         if input_nc == 1:  # RGB to gray
             tmp = A[0, ...] * 0.299 + A[1, ...] * 0.587 + A[2, ...] * 0.114
             image = tmp.unsqueeze(0)
