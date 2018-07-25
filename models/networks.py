@@ -204,11 +204,13 @@ class ResnetGeneratorImageToVoxel(nn.Module):
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
 
-        model = [nn.ReflectionPad2d(3),
+        model = [Print('yeeting'),
+                 nn.ReflectionPad2d(3),
                  nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0,
                            bias=use_bias),
                  norm_layer(ngf),
-                 nn.ReLU(True)]
+                 nn.ReLU(True),
+                 Print('yeet')]
         # Downsampling
         n_downsampling = 2
         for i in range(n_downsampling):
@@ -575,5 +577,11 @@ class Flatten(nn.Module):
       super(Flatten, self).__init__()
 
     def forward(self, input):
-        return input.view(input(0), -1, 1) 
+        return input.view(input.size(0), -1, 1) 
 
+class Print(nn.Module):
+    def __init__(self, text):
+        super(Print, self).__init__()
+        self.text = text
+    def forward(self, input):
+        return input
