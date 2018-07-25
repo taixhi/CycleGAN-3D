@@ -196,57 +196,66 @@ class ResnetGeneratorImageToVoxel(nn.Module):
         super(ResnetGeneratorImageToVoxel, self).__init__()
         self.input_nc = input_nc
         self.output_nc = output_nc
+        print(self.input_nc)
+        print('out is')
+        print(self.output_nc)
         self.ngf = ngf
-        self.cube_len = cube_len
-        self.z_size = 200
+        self.cube_len = 32
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
 
-        model = [Print('yeeting'),
+        model = [Print('First'),
                  nn.ReflectionPad2d(3),
                  nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0,
                            bias=use_bias),
                  norm_layer(ngf),
                  nn.ReLU(True),
-                 Print('yeet')]
+                 Print('Second')]
         # Downsampling
-        n_downsampling = 2
+        n_downsampling = 3
         for i in range(n_downsampling):
             mult = 2**i
-            model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3,
-                                stride=2, padding=1, bias=use_bias),
+            model += [Print('Third'),
+                      nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3,
+                               stride=2, padding=1, bias=use_bias),
                       norm_layer(ngf * mult * 2),
-                      nn.ReLU(True)]
+                      nn.ReLU(True),
+                      Print('Fourth')]
         # Transforming
         mult = 2**n_downsampling
         for i in range(n_blocks):
-            model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
+            model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias), Print('Fifth') ]
         padd = (0, 0, 0)
         if self.cube_len == 32:
             padd = (1,1,1)
        
         model += [Flatten()]
-
-        model += [nn.ConvTranspose3d(self.z_size, self.cube_len*8, kernel_size=4, stride=2, bias=use_bias, padding=padd)]
+        
+        model += [nn.ConvTranspose3d(1024, self.cube_len*8, kernel_size = 4, stride = 2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.BatchNorm3d(self.cube_len*8)]
         model += [nn.ReLU()]
+        model += [Print("7.5th layer")]
 
         model += [nn.ConvTranspose3d(self.cube_len*8, self.cube_len*4, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.BatchNorm3d(self.cube_len*4)]
         model += [nn.ReLU()]
-
+        model += [Print("Seventh")]
+        
         model += [nn.ConvTranspose3d(self.cube_len*4, self.cube_len*2, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.BatchNorm3d(self.cube_len*2)]
-        model += [nn.ReLU()]
+        model += [nn.ReLU()]  
+        model += [Print("Eighth")]
 
         model += [nn.ConvTranspose3d(self.cube_len*2, self.cube_len, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.BatchNorm3d(self.cube_len)]
         model += [nn.ReLU()]
+        model += [Print("Nineth")]
 
-        model += [nn.ConvTranspose3d(self.cube_len, 1, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
+        model += [nn.ConvTranspose3d(self.cube_len, output_nc, kernel_size=4, stride=2, bias=use_bias, padding=(1, 1, 1))]
         model += [nn.Sigmoid()]
+        model += [Print("Tenth")]
 
         # # Upsampling (Convolutional Transposition)
         # for i in range(n_downsampling):
@@ -577,11 +586,17 @@ class Flatten(nn.Module):
       super(Flatten, self).__init__()
 
     def forward(self, input):
-        return input.view(input.size(0), -1, 1) 
+        print(input.size())
+        x = input.unsqueeze(4)
+        new = x.view(input.size()[0], -1, 8, 8, 8)
+        print(new.size())
+        return new
 
 class Print(nn.Module):
     def __init__(self, text):
         super(Print, self).__init__()
         self.text = text
     def forward(self, input):
+        print(self.text)
+        print(input.size())
         return input

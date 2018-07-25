@@ -39,7 +39,7 @@
                   no_html: False                         
                  no_lsgan: False                         
                      norm: instance                      
-                output_nc: 3                             
+                output_nc: 1                             	[default: 3]
                     phase: train                         
                 pool_size: 50                            
                print_freq: 100                           
